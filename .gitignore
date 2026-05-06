@@ -7,7 +7,7 @@
 # Always track the gitignore itself
 !.gitignore
 
-!install.txt
+!install.*
 
 !.vimrc
 
