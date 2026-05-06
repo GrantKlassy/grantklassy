@@ -1,0 +1,8 @@
+{
+  "theme": "dark",
+  "skipAutoPermissionPrompt": true,
+  "permissions": {
+    "defaultMode": "auto",
+    "allow": ["Bash(git push:*)"]
+  }
+}

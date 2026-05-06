@@ -21,6 +21,9 @@
 !.bashrc.d/
 !.bashrc.d/**
 
+!.claude/
+!.claude/settings.json
+
 # To track a directory, un-ignore the directory AND its contents:
 #   !some_dir/
 #   !some_dir/**
