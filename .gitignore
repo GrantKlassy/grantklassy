@@ -7,7 +7,14 @@
 # Always track the gitignore itself
 !.gitignore
 
-!install.*
+# Top-level files visible in $HOME
+!install.sh
+!README.md
+!LICENSE
+
+# Hidden utility tree — drop new tools here to keep $HOME tidy
+!.grantklassy/
+!.grantklassy/**
 
 !.vimrc
 

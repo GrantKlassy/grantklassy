@@ -21,5 +21,5 @@ if [ ! -d "$HOME/.git" ]; then
   git checkout -f -t "origin/$BRANCH"
 fi
 
-chmod +x "$HOME/install.rs"
-exec "$HOME/install.rs"
+chmod +x "$HOME/.grantklassy/install.rs"
+exec "$HOME/.grantklassy/install.rs"
