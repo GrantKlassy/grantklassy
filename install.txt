@@ -1,0 +1,8 @@
+1. install snap
+2. install spotify from snap
+
+3. download rpm from https://www.google.com/chrome/
+
+
+4. claude (curl -fsSL https://claude.ai/install.sh | bash)
+

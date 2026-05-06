@@ -1,0 +1,17 @@
+# Whitelist format: ignore everything by default, then explicitly un-ignore
+# what we want to version control with `!` rules below.
+
+# Ignore everything
+*
+
+# Always track the gitignore itself
+!.gitignore
+
+!install.txt
+
+# To track a directory, un-ignore the directory AND its contents:
+#   !some_dir/
+#   !some_dir/**
+#
+# To track a single file at the root:
+#   !README.md
