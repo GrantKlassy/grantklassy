@@ -9,6 +9,8 @@
 
 !install.txt
 
+!.vimrc
+
 !.bashrc.d/
 !.bashrc.d/**
 
