@@ -9,6 +9,9 @@
 
 !install.txt
 
+!.bashrc.d/
+!.bashrc.d/**
+
 # To track a directory, un-ignore the directory AND its contents:
 #   !some_dir/
 #   !some_dir/**
