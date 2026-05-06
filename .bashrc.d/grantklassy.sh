@@ -1,15 +1,6 @@
 # shellcheck shell=bash
 # ============================================================================
 # grantklassy.sh
-#
-# Compiled from ~/git/grantklassy/dotfiles:
-#   rc/bashrc
-#   bash/.bashrc.d/shell.sh
-#   bash/.bashrc.d/macos.sh
-#   bash/.bashrc.d/aliases.sh
-#   bash/.bashrc.d/functions.sh
-#   bash/.bashrc.d/prompt.sh
-#   bash/.bashrc.d/barnacle.sh
 # ============================================================================
 
 # Bail on non-interactive shells
@@ -75,6 +66,7 @@ alias m='mount | column -t | less -S'
 alias k='kubectl'
 alias reload='source ~/.bashrc'
 alias perms='stat -c "%a %A %G:%U %n" ./* | column -t'
+alias claude='claude --model=opus --effort=max'
 
 # ----------------------------------------------------------------------------
 # Functions
@@ -125,35 +117,3 @@ parse_branch() {
 # Colored prompt with git branch
 export PS1="★★★ \[\033[01;31m\]\u@\h\[\033[00m\] ★★★ \[\033[01;34m\]\w\[\033[00m\]\$(parse_branch) ★★★ \$ "
 
-# Terminal window title
-PROMPT_COMMAND='echo -ne "\033]0;${USER}@${HOSTNAME}: ${PWD}\007"'
-
-# Save original so set_title can revert
-if [[ -z "${_ORIGINAL_PROMPT_COMMAND_SAVED}" ]]; then
-  _ORIGINAL_PROMPT_COMMAND_SAVED=1
-  ORIGINAL_PROMPT_COMMAND="$PROMPT_COMMAND"
-fi
-
-# Usage: set_title "TITLE"  -> sets static title
-#        set_title           -> reverts to default
-set_title() {
-  if [[ -z "$1" ]]; then
-    if [[ -n "$ORIGINAL_PROMPT_COMMAND" ]]; then
-      PROMPT_COMMAND="$ORIGINAL_PROMPT_COMMAND"
-    else
-      unset PROMPT_COMMAND
-    fi
-  else
-    PROMPT_COMMAND="echo -ne '\033]0;$*\007'"
-  fi
-}
-
-# ----------------------------------------------------------------------------
-# barnacle (executive-function CLI)
-# ----------------------------------------------------------------------------
-
-_barnacle_dir="$HOME/git/grantklassy/reimagined-barnacle"
-if [ -d "$_barnacle_dir" ]; then
-  export BARNACLE_HOME="$_barnacle_dir"
-fi
-unset _barnacle_dir
