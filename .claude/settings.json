@@ -1,8 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)"
+    ],
+    "defaultMode": "auto"
+  },
   "theme": "dark",
   "skipAutoPermissionPrompt": true,
-  "permissions": {
-    "defaultMode": "auto",
-    "allow": ["Bash(git push:*)"]
+  "enabledPlugins": {
+    "rust-analyzer-lsp@claude-plugins-official": true
   }
 }
