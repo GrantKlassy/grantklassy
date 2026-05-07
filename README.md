@@ -1,5 +1,6 @@
 # grantklassy
-`cd ~ && git init && git pull https://github.com/GrantKlassy/grantklassy.git main`
+`sudo dnf install git gh`
+`cd && git init && git pull https://github.com/GrantKlassy/grantklassy.git main`
 
 # poetry
 
