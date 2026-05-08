@@ -14,7 +14,8 @@
 #[path = "util/log.rs"]
 mod log;
 
-use std::process::{Command, exit};
+use std::path::Path;
+use std::process::{Command, Stdio, exit};
 
 fn run(cmd: &str, args: &[&str]) {
     let status = Command::new(cmd)
@@ -27,7 +28,32 @@ fn run(cmd: &str, args: &[&str]) {
     }
 }
 
+fn home() -> String {
+    std::env::var("HOME").unwrap_or_else(|_| { error!("HOME not set"); exit(1) })
+}
+
 fn main() {
     step!("claude code");
     run("sh", &["-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
+
+    step!("facecam");
+    let dir = format!("{}/facecam", home());
+    if Path::new(&dir).join(".git").exists() {
+        info!("facecam already cloned at {dir}");
+    } else {
+        run("git", &["clone", "https://github.com/GrantKlassy/facecam.git", &dir]);
+    }
+    run("cargo", &["build", "--release", "--manifest-path", &format!("{dir}/Cargo.toml")]);
+
+    // Detach: new session via `setsid`, stdio to /dev/null, no wait. Survives
+    // install.rs exiting and the controlling terminal going away.
+    let bin = format!("{dir}/target/release/facecam");
+    Command::new("setsid")
+        .arg(&bin)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap_or_else(|e| { error!("spawn facecam: {e}"); exit(1) });
+    ok!("facecam launched in background");
 }
