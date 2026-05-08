@@ -35,8 +35,14 @@ fn home() -> String {
 }
 
 fn main() {
+    // Pick up PATH additions from .bashrc/.cargo/env that the sudo-spawned
+    // bash didn't see. Repeated between steps so each install pulls in the
+    // PATH the previous one wrote.
+    refresh_env();
+
     step!("claude code");
     run("sh", &["-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
+    refresh_env();
 
     step!("facecam");
     let dir = format!("{}/facecam", home());
@@ -46,16 +52,45 @@ fn main() {
         run("git", &["clone", "https://github.com/GrantKlassy/facecam.git", &dir]);
     }
     run("cargo", &["build", "--release", "--manifest-path", &format!("{dir}/Cargo.toml")]);
+    refresh_env();
 
     launch_facecam(&format!("{dir}/target/release/facecam"));
+
+    step!("done");
+    info!("to pick up new env in your current shell, run: `exec bash -l` or `source ~/.bashrc`");
 }
 
-/// Recover the live session env (DISPLAY, WAYLAND_DISPLAY, XAUTHORITY, …),
-/// pick the user's currently selected audio output as the visualizer source,
-/// then spawn facecam detached and verify it actually stayed up.
+/// Re-source ~/.bashrc and ~/.cargo/env into install.rs's own env so any
+/// subprocess we spawn afterwards sees PATH additions written by earlier
+/// install steps. install.rs starts in a sudo-spawned subshell created
+/// before any of our installs ran; without this, freshly installed
+/// binaries (cargo from rustup, claude) wouldn't be on PATH for the next
+/// step.
+fn refresh_env() {
+    let out = Command::new("bash")
+        .args([
+            "-c",
+            // `set -a` exports every assignment, so PATH/etc. set inside
+            // .bashrc become real env vars in the spawned bash, visible to
+            // `env -0`. Sourcing failures are non-fatal — fresh systems
+            // may lack one or both files on first run.
+            r#"set -a; . "$HOME/.bashrc" 2>/dev/null; . "$HOME/.cargo/env" 2>/dev/null; set +a; env -0"#,
+        ])
+        .output();
+    let Ok(o) = out else { return };
+    if !o.status.success() { return }
+    for (k, v) in parse_env0(&o.stdout, ENV_PASSTHROUGH) {
+        // SAFETY: install.rs is single-threaded until launch_facecam.
+        unsafe { std::env::set_var(&k, &v); }
+    }
+}
+
+/// Spawn facecam detached, with the user's live session env restored, the
+/// currently selected audio output as the visualizer source, and a brief
+/// liveness check so we don't lie about a launch that died on startup.
 fn launch_facecam(bin: &str) {
     let session = read_session_env();
-    if session.iter().all(|(k, _)| k != "WAYLAND_DISPLAY" && k != "DISPLAY") {
+    if !session.iter().any(|(k, _)| k == "WAYLAND_DISPLAY" || k == "DISPLAY") {
         warn!("no DISPLAY/WAYLAND_DISPLAY in session env; window may fail to open");
     }
 
@@ -121,27 +156,7 @@ fn read_session_env() -> Vec<(String, String)> {
         Ok(o) if o.status.success() => o.stdout,
         _ => return Vec::new(),
     };
-
-    const WANTED: &[&str] = &[
-        "DISPLAY",
-        "WAYLAND_DISPLAY",
-        "XAUTHORITY",
-        "XDG_RUNTIME_DIR",
-        "XDG_SESSION_TYPE",
-        "DBUS_SESSION_BUS_ADDRESS",
-        "PULSE_SERVER",
-    ];
-
-    let mut env = Vec::new();
-    for chunk in stdout.split(|b| *b == 0) {
-        if chunk.is_empty() { continue }
-        let Ok(s) = std::str::from_utf8(chunk) else { continue };
-        let Some((k, v)) = s.split_once('=') else { continue };
-        if WANTED.contains(&k) && !v.is_empty() {
-            env.push((k.to_string(), v.to_string()));
-        }
-    }
-    env
+    parse_env0(&stdout, SESSION_KEYS)
 }
 
 /// Resolve the user's currently selected audio output (default sink) and
@@ -158,7 +173,149 @@ fn default_sink_monitor(session: &[(String, String)]) -> Option<String> {
     }
     let out = cmd.output().ok()?;
     if !out.status.success() { return None }
-    let sink = std::str::from_utf8(&out.stdout).ok()?.trim();
-    if sink.is_empty() { return None }
-    Some(format!("{sink}.monitor"))
+    sink_to_monitor(std::str::from_utf8(&out.stdout).ok()?)
+}
+
+/// Keys facecam needs from the user's live graphical session.
+const SESSION_KEYS: &[&str] = &[
+    "DISPLAY",
+    "WAYLAND_DISPLAY",
+    "XAUTHORITY",
+    "XDG_RUNTIME_DIR",
+    "XDG_SESSION_TYPE",
+    "DBUS_SESSION_BUS_ADDRESS",
+    "PULSE_SERVER",
+];
+
+/// Keys we let `refresh_env` overwrite in our own env after sourcing
+/// .bashrc/.cargo/env. PATH is the load-bearing one (newly installed
+/// binaries); the others come along for compatibility with shells that
+/// expect them.
+const ENV_PASSTHROUGH: &[&str] = &[
+    "PATH",
+    "MANPATH",
+    "INFOPATH",
+    "PKG_CONFIG_PATH",
+    "LD_LIBRARY_PATH",
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+    "EDITOR",
+];
+
+/// Parse null-separated `KEY=VALUE` pairs from `env -0` output, keeping
+/// only `wanted` keys with non-empty values.
+fn parse_env0(stdout: &[u8], wanted: &[&str]) -> Vec<(String, String)> {
+    let mut env = Vec::new();
+    for chunk in stdout.split(|b| *b == 0) {
+        if chunk.is_empty() { continue }
+        let Ok(s) = std::str::from_utf8(chunk) else { continue };
+        let Some((k, v)) = s.split_once('=') else { continue };
+        if wanted.contains(&k) && !v.is_empty() {
+            env.push((k.to_string(), v.to_string()));
+        }
+    }
+    env
+}
+
+/// Append `.monitor` to a sink name from `pactl get-default-sink`. Returns
+/// `None` if the input is empty or whitespace-only (no default sink set).
+fn sink_to_monitor(sink_stdout: &str) -> Option<String> {
+    let s = sink_stdout.trim();
+    if s.is_empty() { return None }
+    Some(format!("{s}.monitor"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_env0_filters_to_wanted_keys() {
+        let input = b"DISPLAY=:0\0WAYLAND_DISPLAY=wayland-0\0HOME=/home/x\0XAUTHORITY=/run/x\0";
+        let got = parse_env0(input, &["DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY"]);
+        assert_eq!(got.len(), 3);
+        assert!(got.contains(&("DISPLAY".into(), ":0".into())));
+        assert!(got.contains(&("WAYLAND_DISPLAY".into(), "wayland-0".into())));
+        assert!(got.contains(&("XAUTHORITY".into(), "/run/x".into())));
+    }
+
+    #[test]
+    fn parse_env0_skips_unwanted_keys() {
+        let input = b"DISPLAY=:0\0HOME=/home/x\0PATH=/usr/bin\0";
+        let got = parse_env0(input, &["DISPLAY"]);
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].0, "DISPLAY");
+    }
+
+    #[test]
+    fn parse_env0_skips_empty_values() {
+        // sudo-stripped env can leave WAYLAND_DISPLAY=<empty>; passing that
+        // through would prevent facecam's Wayland init from running.
+        let input = b"DISPLAY=\0WAYLAND_DISPLAY=wayland-0\0";
+        let got = parse_env0(input, &["DISPLAY", "WAYLAND_DISPLAY"]);
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].0, "WAYLAND_DISPLAY");
+    }
+
+    #[test]
+    fn parse_env0_preserves_equals_in_values() {
+        let input = b"DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus\0";
+        let got = parse_env0(input, &["DBUS_SESSION_BUS_ADDRESS"]);
+        assert_eq!(got[0].1, "unix:path=/run/user/1000/bus");
+    }
+
+    #[test]
+    fn parse_env0_handles_empty_chunks() {
+        // Real `env -0` output from bash has no trailing-double-null, but
+        // we tolerate either form to stay defensive.
+        let input = b"\0\0DISPLAY=:0\0\0";
+        let got = parse_env0(input, &["DISPLAY"]);
+        assert_eq!(got.len(), 1);
+    }
+
+    #[test]
+    fn parse_env0_skips_chunks_without_equals() {
+        let input = b"NOEQUALS\0DISPLAY=:0\0";
+        let got = parse_env0(input, &["DISPLAY", "NOEQUALS"]);
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].0, "DISPLAY");
+    }
+
+    #[test]
+    fn parse_env0_handles_empty_input() {
+        assert!(parse_env0(b"", &["DISPLAY"]).is_empty());
+    }
+
+    #[test]
+    fn parse_env0_skips_invalid_utf8() {
+        let mut input: Vec<u8> = b"DISPLAY=".to_vec();
+        input.push(0xFF); // lone continuation byte
+        input.push(0);
+        input.extend_from_slice(b"XAUTHORITY=/run/x\0");
+        let got = parse_env0(&input, &["DISPLAY", "XAUTHORITY"]);
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].0, "XAUTHORITY");
+    }
+
+    #[test]
+    fn sink_to_monitor_appends_suffix() {
+        assert_eq!(
+            sink_to_monitor("alsa_output.pci-0000_00_1f.3.iec958-stereo\n"),
+            Some("alsa_output.pci-0000_00_1f.3.iec958-stereo.monitor".into())
+        );
+    }
+
+    #[test]
+    fn sink_to_monitor_trims_surrounding_whitespace() {
+        assert_eq!(sink_to_monitor("  foo\n"), Some("foo.monitor".into()));
+        assert_eq!(sink_to_monitor("\tfoo\t\n"), Some("foo.monitor".into()));
+    }
+
+    #[test]
+    fn sink_to_monitor_returns_none_for_empty() {
+        assert_eq!(sink_to_monitor(""), None);
+        assert_eq!(sink_to_monitor("\n"), None);
+        assert_eq!(sink_to_monitor("   "), None);
+        assert_eq!(sink_to_monitor("\t\n  \n"), None);
+    }
 }
