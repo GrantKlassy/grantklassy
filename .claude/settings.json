@@ -6,8 +6,5 @@
     "defaultMode": "auto"
   },
   "theme": "dark",
-  "skipAutoPermissionPrompt": true,
-  "enabledPlugins": {
-    "rust-analyzer-lsp@claude-plugins-official": true
-  }
+  "skipAutoPermissionPrompt": true
 }
