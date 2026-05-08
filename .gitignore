@@ -12,6 +12,9 @@
 !README.md
 !LICENSE
 
+# Track, but don't expose
+!PRIVATE.md
+
 # Hidden utility tree — drop new tools here to keep $HOME tidy
 !.grantklassy/
 !.grantklassy/**
