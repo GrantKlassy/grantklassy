@@ -1,12 +1,13 @@
 #!/usr/bin/env -S cargo +nightly -Zscript
-// Single-file cargo script (still nightly-only — requires `-Zscript`).
-// Add deps later via a `---` frontmatter block above `fn main`.
+// Single-file cargo script for user-space setup (nightly-only — needs
+// `-Zscript`). Add deps later via a `---` frontmatter block above `fn main`.
 //
-// install.sh runs as root via sudo, does all the dnf installs, then exec's
-// this script as the original user. So:
-//   - this script must run as the user, never as root
-//   - no `dnf` or `sudo` calls live here — system packages belong in install.sh
-//   - everything below should be user-space (writes under $HOME, etc.)
+// Prerequisites (git, gh, stable Rust) come from the public bootstrap repo:
+//   curl -fsSL https://raw.githubusercontent.com/GrantKlassy/bootstrap/main/install.sh | bash
+// Then `rustup toolchain install nightly` so `-Zscript` is available.
+//
+// This script runs as the user, never as root. No `dnf`/`sudo` calls live
+// here — writes only under $HOME.
 //
 // Run unit tests with:
 //   cargo +nightly -Zscript test --manifest-path install.rs
