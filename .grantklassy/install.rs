@@ -14,10 +14,7 @@
 #[path = "util/log.rs"]
 mod log;
 
-use std::path::Path;
-use std::process::{Command, Stdio, exit};
-use std::thread;
-use std::time::Duration;
+use std::process::{Command, exit};
 
 fn run(cmd: &str, args: &[&str]) {
     let status = Command::new(cmd)
@@ -30,10 +27,6 @@ fn run(cmd: &str, args: &[&str]) {
     }
 }
 
-fn home() -> String {
-    std::env::var("HOME").unwrap_or_else(|_| { error!("HOME not set"); exit(1) })
-}
-
 fn main() {
     // Pick up PATH additions from .bashrc/.cargo/env that the sudo-spawned
     // bash didn't see. Repeated between steps so each install pulls in the
@@ -43,18 +36,6 @@ fn main() {
     step!("claude code");
     run("sh", &["-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
     refresh_env();
-
-    step!("facecam");
-    let dir = format!("{}/facecam", home());
-    if Path::new(&dir).join(".git").exists() {
-        info!("facecam already cloned at {dir}");
-    } else {
-        run("git", &["clone", "https://github.com/GrantKlassy/facecam.git", &dir]);
-    }
-    run("cargo", &["build", "--release", "--manifest-path", &format!("{dir}/Cargo.toml")]);
-    refresh_env();
-
-    launch_facecam(&format!("{dir}/target/release/facecam"));
 
     step!("done");
     info!("to pick up new env in your current shell, run: `exec bash -l` or `source ~/.bashrc`");
@@ -80,112 +61,10 @@ fn refresh_env() {
     let Ok(o) = out else { return };
     if !o.status.success() { return }
     for (k, v) in parse_env0(&o.stdout, ENV_PASSTHROUGH) {
-        // SAFETY: install.rs is single-threaded until launch_facecam.
+        // SAFETY: install.rs is single-threaded.
         unsafe { std::env::set_var(&k, &v); }
     }
 }
-
-/// Spawn facecam detached, with the user's live session env restored, the
-/// currently selected audio output as the visualizer source, and a brief
-/// liveness check so we don't lie about a launch that died on startup.
-fn launch_facecam(bin: &str) {
-    let session = read_session_env();
-    if !session.iter().any(|(k, _)| k == "WAYLAND_DISPLAY" || k == "DISPLAY") {
-        warn!("no DISPLAY/WAYLAND_DISPLAY in session env; window may fail to open");
-    }
-
-    let device = default_sink_monitor(&session);
-    match &device {
-        Some(d) => info!("FACECAM_DEVICE={d}"),
-        None => warn!("no default sink from pactl; falling back to facecam's first-input default"),
-    }
-
-    let mut cmd = Command::new("setsid");
-    cmd.arg(bin)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    for (k, v) in &session {
-        cmd.env(k, v);
-    }
-    if let Some(d) = device {
-        cmd.env("FACECAM_DEVICE", d);
-    }
-
-    let mut child = cmd.spawn()
-        .unwrap_or_else(|e| { error!("spawn facecam: {e}"); exit(1) });
-
-    // spawn() returns Ok the instant fork+exec succeeds — even if facecam
-    // dies a millisecond later because there's no display or audio source.
-    // Wait briefly and confirm the process is still alive before claiming
-    // success; otherwise we'd silently lie about a launched window.
-    thread::sleep(Duration::from_millis(800));
-    match child.try_wait() {
-        Ok(None) => ok!("facecam launched in background (pid {})", child.id()),
-        Ok(Some(status)) => {
-            error!("facecam exited immediately ({status})");
-            error!("rerun directly to see stderr: {bin}");
-            exit(1);
-        }
-        Err(e) => { error!("checking facecam status: {e}"); exit(1) }
-    }
-}
-
-/// Read the user's live graphical-session env via systemd-logind.
-///
-/// `sudo` strips most of the session env (notably `WAYLAND_DISPLAY` and
-/// `XAUTHORITY`), so the binary inherits a stripped env from the install
-/// pipeline and can't open a window. `systemctl --user show-environment`
-/// is the canonical, well-supported primitive for reading the live session
-/// env back: pam_systemd seeds it at login from `import-environment`.
-///
-/// We restrict to the keys facecam actually needs — overwriting HOME or
-/// PATH from this dump would be wrong.
-fn read_session_env() -> Vec<(String, String)> {
-    // `set -a` auto-exports every assignment, so `eval` of systemctl's
-    // `KEY=VALUE` lines makes them visible to `env -0` in the same shell.
-    // bash + eval handles systemctl's `$'…'` quoting for values with
-    // whitespace; `env -0` emits unambiguous null-separated KEY=VALUE pairs.
-    let out = Command::new("bash")
-        .args([
-            "-c",
-            r#"set -a; eval "$(systemctl --user show-environment 2>/dev/null)"; set +a; env -0"#,
-        ])
-        .output();
-    let stdout = match out {
-        Ok(o) if o.status.success() => o.stdout,
-        _ => return Vec::new(),
-    };
-    parse_env0(&stdout, SESSION_KEYS)
-}
-
-/// Resolve the user's currently selected audio output (default sink) and
-/// return the name of its monitor source, suitable for `FACECAM_DEVICE`.
-///
-/// Uses `pactl get-default-sink`, the standard PulseAudio/PipeWire CLI for
-/// "what is the user listening through right now". The matching capture
-/// source is `<sink>.monitor`.
-fn default_sink_monitor(session: &[(String, String)]) -> Option<String> {
-    let mut cmd = Command::new("pactl");
-    cmd.arg("get-default-sink");
-    for (k, v) in session {
-        cmd.env(k, v);
-    }
-    let out = cmd.output().ok()?;
-    if !out.status.success() { return None }
-    sink_to_monitor(std::str::from_utf8(&out.stdout).ok()?)
-}
-
-/// Keys facecam needs from the user's live graphical session.
-const SESSION_KEYS: &[&str] = &[
-    "DISPLAY",
-    "WAYLAND_DISPLAY",
-    "XAUTHORITY",
-    "XDG_RUNTIME_DIR",
-    "XDG_SESSION_TYPE",
-    "DBUS_SESSION_BUS_ADDRESS",
-    "PULSE_SERVER",
-];
 
 /// Keys we let `refresh_env` overwrite in our own env after sourcing
 /// .bashrc/.cargo/env. PATH is the load-bearing one (newly installed
@@ -217,14 +96,6 @@ fn parse_env0(stdout: &[u8], wanted: &[&str]) -> Vec<(String, String)> {
     env
 }
 
-/// Append `.monitor` to a sink name from `pactl get-default-sink`. Returns
-/// `None` if the input is empty or whitespace-only (no default sink set).
-fn sink_to_monitor(sink_stdout: &str) -> Option<String> {
-    let s = sink_stdout.trim();
-    if s.is_empty() { return None }
-    Some(format!("{s}.monitor"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -249,12 +120,12 @@ mod tests {
 
     #[test]
     fn parse_env0_skips_empty_values() {
-        // sudo-stripped env can leave WAYLAND_DISPLAY=<empty>; passing that
-        // through would prevent facecam's Wayland init from running.
-        let input = b"DISPLAY=\0WAYLAND_DISPLAY=wayland-0\0";
-        let got = parse_env0(input, &["DISPLAY", "WAYLAND_DISPLAY"]);
+        // An empty PATH from a partial sourcing would silently break later
+        // steps that need it; skip empties rather than overwrite real env.
+        let input = b"PATH=\0EDITOR=vim\0";
+        let got = parse_env0(input, &["PATH", "EDITOR"]);
         assert_eq!(got.len(), 1);
-        assert_eq!(got[0].0, "WAYLAND_DISPLAY");
+        assert_eq!(got[0].0, "EDITOR");
     }
 
     #[test]
@@ -297,25 +168,4 @@ mod tests {
         assert_eq!(got[0].0, "XAUTHORITY");
     }
 
-    #[test]
-    fn sink_to_monitor_appends_suffix() {
-        assert_eq!(
-            sink_to_monitor("alsa_output.pci-0000_00_1f.3.iec958-stereo\n"),
-            Some("alsa_output.pci-0000_00_1f.3.iec958-stereo.monitor".into())
-        );
-    }
-
-    #[test]
-    fn sink_to_monitor_trims_surrounding_whitespace() {
-        assert_eq!(sink_to_monitor("  foo\n"), Some("foo.monitor".into()));
-        assert_eq!(sink_to_monitor("\tfoo\t\n"), Some("foo.monitor".into()));
-    }
-
-    #[test]
-    fn sink_to_monitor_returns_none_for_empty() {
-        assert_eq!(sink_to_monitor(""), None);
-        assert_eq!(sink_to_monitor("\n"), None);
-        assert_eq!(sink_to_monitor("   "), None);
-        assert_eq!(sink_to_monitor("\t\n  \n"), None);
-    }
 }
