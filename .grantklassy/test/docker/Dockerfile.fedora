@@ -1,0 +1,10 @@
+# Fedora image for testing install.rs. dnf instead of apt; shadow-utils provides
+# useradd. See Dockerfile.debian for the rationale (system-wide nightly so both
+# root and a non-root user can run the -Zscript polyglot).
+FROM fedora:latest
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# gcc + glibc-devel give the `cc` linker rustc needs (bootstrap installs gcc too).
+RUN dnf -y install ca-certificates curl git bash zsh tar shadow-utils gcc glibc-devel && dnf clean all
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal

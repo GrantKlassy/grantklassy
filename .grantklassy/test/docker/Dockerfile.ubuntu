@@ -1,0 +1,14 @@
+# Ubuntu 24.04 image for testing install.rs. See Dockerfile.debian for the
+# rationale (system-wide nightly so both root and a non-root user can run the
+# -Zscript polyglot; minimal prereqs for the offline assertions).
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive \
+    RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# build-essential gives the `cc` linker rustc needs (bootstrap installs gcc+make
+# too; minimal images don't ship a C toolchain, so add it explicitly).
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl git bash zsh tar build-essential && \
+    rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal

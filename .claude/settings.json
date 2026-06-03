@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)"
+    ],
+    "defaultMode": "auto"
+  },
+  "fastMode": true,
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "auto",
+  "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Allow `git push` to `main` in /Users/grantklassy and /Users/grantklassy/git/grantklassy/bootstrap — personal solo repos."
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+# Whitelist format: ignore everything by default, then explicitly un-ignore
+# what we want to version control with `!` rules below.
+
+# Ignore everything
+*
+
+# Always track the gitignore itself
+!.gitignore
+
+# Top-level files visible in $HOME
+!bootstrap.sh
+!README.md
+!LICENSE
+!MAC_APPS.md
+
+# Karabiner Elements config (~/.config/karabiner/karabiner.json) — created
+# on first launch of the app. Listed pre-emptively so it's tracked from
+# install day. .config/ is opened narrowly here, not as a blanket allow,
+# so other XDG-config dirs don't get pulled in by accident.
+!.config/
+!.config/karabiner/
+!.config/karabiner/**
+# ...but not the app-regenerated backups, which would churn endlessly.
+.config/karabiner/automatic_backups/
+
+# Hidden utility tree — drop new tools here to keep $HOME tidy
+!.grantklassy/
+!.grantklassy/**
+
+!.gitconfig
+
+!.vimrc
+
+!.zshrc
+
+!.bashrc.d/
+!.bashrc.d/**
+
+!.claude/
+!.claude/settings.json
+
+# To track a directory, un-ignore the directory AND its contents:
+#   !some_dir/
+#   !some_dir/**
+#
+# To track a single file at the root:
+#   !README.md

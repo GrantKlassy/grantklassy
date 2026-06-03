@@ -1,0 +1,16 @@
+# Debian 12 image for testing install.rs. Installs the prerequisites the offline
+# assertions need (git for parse_branch, bash+zsh for the shell harness, tar for
+# the snapshot, curl/ca-certificates for the rustup install) plus a nightly Rust
+# toolchain installed SYSTEM-WIDE so both root (refuse_root test) and a non-root
+# user (shell-env test) can run the `cargo +nightly -Zscript` polyglot.
+FROM debian:12
+ENV DEBIAN_FRONTEND=noninteractive \
+    RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# build-essential gives the `cc` linker rustc needs (bootstrap installs gcc+make
+# too; minimal images don't ship a C toolchain, so add it explicitly).
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl git bash zsh tar build-essential && \
+    rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal
