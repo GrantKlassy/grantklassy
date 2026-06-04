@@ -12,6 +12,7 @@
 # _prompt_color <code> -> a \[ \]-wrapped bold 256-colour SGR. PC_RESET clears it.
 _prompt_color() { printf '%s' "\[\033[1;38;5;$1m\]"; }
 PC_RESET='\[\033[00m\]'
-PC_USER=$(_prompt_color 205)               # pink   — user@
+PC_USER=$(_prompt_color 205)               # pink   — username
+PC_AT=$(_prompt_color 15)                  # white  — the @ in user@host
 PC_HOST=$(_prompt_color "$(host_color)")   # per-host hash colour — hostname
 PC_PATH=$(_prompt_color 208)               # orange — working dir

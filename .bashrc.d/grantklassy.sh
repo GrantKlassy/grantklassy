@@ -112,4 +112,4 @@ alias claude='claude --model=opus --effort=max'
 # PC_* and parse_branch come from prompt.bash + lib.sh (sourced above). Escapes
 # are wrapped in \[ \] there so readline counts the width right; parse_branch
 # is left unexpanded (\$(...)) so it re-runs each prompt.
-export PS1="★★★ ${PC_USER}\u@${PC_HOST}\h${PC_RESET} ★★★ ${PC_PATH}\w${PC_RESET}\$(parse_branch) ★★★ \$ "
+export PS1="★★★ ${PC_USER}\u${PC_AT}@${PC_HOST}\h${PC_RESET} ★★★ ${PC_PATH}\w${PC_RESET}\$(parse_branch) ★★★ \$ "

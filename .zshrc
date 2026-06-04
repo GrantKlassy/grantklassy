@@ -113,7 +113,7 @@ alias claude='claude --model=opus --effort=max'
 # $(parse_branch) and the %F{$pc_*} colours on every prompt.
 # %n=user %m=short host %~=cwd; %F{n}…%f colour spans.
 setopt PROMPT_SUBST
-PROMPT='★★★ %F{$pc_user}%n@%F{$pc_host}%m%f ★★★ %F{$pc_path}%~%f$(parse_branch) ★★★ %# '
+PROMPT='★★★ %F{$pc_user}%n%F{$pc_at}@%F{$pc_host}%m%f ★★★ %F{$pc_path}%~%f$(parse_branch) ★★★ %# '
 
 # CF CLI completions
 [[ -f "/Users/grantklassy/.config/cf/completions/_cf.zsh" ]] && source "/Users/grantklassy/.config/cf/completions/_cf.zsh"
