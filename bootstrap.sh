@@ -33,6 +33,7 @@
 #   - modern:     jq, tmux
 #   - build:      gcc, make, pkg-config
 #   - editor:     vim
+#   - audio:      pactl, paplay (pulseaudio-utils; libpulse on Arch)
 #
 # Then it wires `. "$HOME/.cargo/env"` into ~/.zshenv and ~/.bashrc (and `brew
 # shellenv` into ~/.zprofile / ~/.bash_profile on macOS) so future shells find
@@ -57,7 +58,8 @@ REPO_URL=https://github.com/GrantKlassy/grantklassy.git
 # are spelled out per-manager in package_list (names diverge: dig is
 # bind-utils/dnsutils/bind/bind-tools, nc is nmap-ncat/openbsd-netcat/
 # netcat-openbsd, the C toolchain is gcc+make vs build-essential vs base-devel
-# vs build-base, etc.).
+# vs build-base, the pulseaudio client tools are pulseaudio-utils vs libpulse on
+# Arch, etc.).
 COMMON='curl wget less unzip rsync jq tmux htop'
 
 main() {
@@ -194,11 +196,11 @@ detect_manager() {
 # unknown manager so a typo fails loudly instead of installing nothing.
 package_list() {
   case "$1" in
-    dnf)    echo "git gh ca-certificates $COMMON gcc make pkgconf-pkg-config vim-enhanced procps-ng bind-utils iputils openssh-clients nmap-ncat" ;;
-    apt)    echo "git ca-certificates $COMMON build-essential pkg-config vim procps dnsutils iputils-ping openssh-client netcat-openbsd" ;;
-    pacman) echo "git github-cli ca-certificates $COMMON base-devel vim procps-ng bind iputils openssh openbsd-netcat" ;;
-    zypper) echo "git gh ca-certificates $COMMON gcc make pkg-config vim procps bind-utils iputils openssh netcat-openbsd" ;;
-    apk)    echo "git github-cli ca-certificates $COMMON build-base pkgconf vim procps bind-tools iputils openssh netcat-openbsd" ;;
+    dnf)    echo "git gh ca-certificates $COMMON gcc make pkgconf-pkg-config vim-enhanced procps-ng bind-utils iputils openssh-clients nmap-ncat pulseaudio-utils" ;;
+    apt)    echo "git ca-certificates $COMMON build-essential pkg-config vim procps dnsutils iputils-ping openssh-client netcat-openbsd pulseaudio-utils" ;;
+    pacman) echo "git github-cli ca-certificates $COMMON base-devel vim procps-ng bind iputils openssh openbsd-netcat libpulse" ;;
+    zypper) echo "git gh ca-certificates $COMMON gcc make pkg-config vim procps bind-utils iputils openssh netcat-openbsd pulseaudio-utils" ;;
+    apk)    echo "git github-cli ca-certificates $COMMON build-base pkgconf vim procps bind-tools iputils openssh netcat-openbsd pulseaudio-utils" ;;
     *)      return 1 ;;
   esac
 }
