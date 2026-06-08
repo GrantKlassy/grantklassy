@@ -19,10 +19,4 @@ Sudo-aware: every file under `$HOME` stays user-owned.
 ~/.grantklassy/install.rs
 ```
 
-Then `exec $SHELL -l` to pick up the new environment in your current window.
-
-### One-liner
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/GrantKlassy/grantklassy/main/bootstrap.sh | sudo sh; exec $SHELL -l; ~/.grantklassy/install.rs; exec $SHELL -l
-```
+Then `exec $SHELL -l` to pick up the new environment in your current window
