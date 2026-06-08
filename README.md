@@ -8,13 +8,10 @@ My dotfiles + machine setup, checked out straight into `$HOME`.
 curl -fsSL https://raw.githubusercontent.com/GrantKlassy/grantklassy/main/bootstrap.sh | sudo sh
 ```
 
-Installs git, gh, rust (stable + nightly), and a baseline CLI kit.
-
-Clones this (public) repo into `$HOME`.
-
-POSIX sh, so it runs the same on macOS, Fedora, Debian/Ubuntu, Arch, openSUSE, etc.
-
-Sudo-aware: every file under `$HOME` stays user-owned.
+* Installs git, gh, rust (stable + nightly), and a baseline CLI kit.
+* Clones this (public) repo into `$HOME`.
+* POSIX sh, so it runs the same on macOS, Fedora, Debian/Ubuntu, Arch, openSUSE, etc.
+* Sudo-aware: every file under `$HOME` stays user-owned.
 
 ### 2. Install user-space tools
 
