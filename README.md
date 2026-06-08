@@ -21,8 +21,8 @@ Sudo-aware: every file under `$HOME` stays user-owned.
 
 Then `exec $SHELL -l` to pick up the new environment in your current window.
 
-### 3.
+### One-liner
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/GrantKlassy/grantklassy/main/bootstrap.sh | sudo sh && exec $SHELL -l && ~/.grantklassy/install.rs && exec $SHELL -l
+curl -fsSL https://raw.githubusercontent.com/GrantKlassy/grantklassy/main/bootstrap.sh | sudo sh; exec $SHELL -l; ~/.grantklassy/install.rs; exec $SHELL -l
 ```
