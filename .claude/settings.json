@@ -14,5 +14,9 @@
       "$defaults",
       "Allow `git push` to `main` in /Users/grantklassy and /Users/grantklassy/git/grantklassy/bootstrap — personal solo repos."
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash /Users/grantklassy/.claude/statusline-command.sh"
   }
 }
