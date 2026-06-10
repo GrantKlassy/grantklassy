@@ -18,5 +18,8 @@ curl -fsSL https://raw.githubusercontent.com/GrantKlassy/grantklassy/main/bootst
 ```sh
 ~/.grantklassy/install.rs
 ```
-
-Then `exec $SHELL -l` to pick up the new environment in your current window
+and
+```sh
+exec $SHELL -l
+```
+to pick up the new environment in your current window
