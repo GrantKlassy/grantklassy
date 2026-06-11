@@ -28,6 +28,8 @@ assert_eq ubuntu "$(printf 'ID="ubuntu"\nVERSION_ID="24.04"\n' | distro_from_os_
   "quoted ID, ignores later lines"
 assert_eq debian "$(printf 'PRETTY_NAME="Debian GNU/Linux 12"\nID=debian\nID_LIKE=\n' | distro_from_os_release)" \
   "ID picked, ID_LIKE not mistaken for ID"
+assert_eq alpine "$(printf "ID='alpine'\n" | distro_from_os_release)" \
+  "single-quoted ID (os-release(5) allows both quote styles)"
 assert_eq "" "$(printf 'NAME=Weird\nVERSION=1\n' | distro_from_os_release)" \
   "no ID line -> empty"
 
@@ -58,12 +60,25 @@ assert_eq no  "$(has_word "$(package_list apt)" gh)"           "apt excludes gh 
 assert_eq yes "$(has_word "$(package_list apt)" build-essential)" "apt uses build-essential"
 assert_eq yes "$(has_word "$(package_list pacman)" github-cli)"   "pacman uses github-cli"
 assert_eq yes "$(has_word "$(package_list pacman)" base-devel)"   "pacman uses base-devel"
+assert_eq yes "$(has_word "$(package_list pacman)" libpulse)"     "pacman uses libpulse (not pulseaudio-utils)"
+assert_eq no  "$(has_word "$(package_list pacman)" gh)"           "pacman excludes bare gh (it's github-cli there)"
+assert_eq yes "$(has_word "$(package_list zypper)" gh)"           "zypper includes gh"
+assert_eq yes "$(has_word "$(package_list zypper)" netcat-openbsd)" "zypper uses netcat-openbsd"
+assert_eq yes "$(has_word "$(package_list zypper)" bind-utils)"   "zypper uses bind-utils for dig"
 assert_eq yes "$(has_word "$(package_list apk)" github-cli)"      "apk uses github-cli"
 assert_eq yes "$(has_word "$(package_list apk)" build-base)"      "apk uses build-base"
+assert_eq yes "$(has_word "$(package_list apk)" bind-tools)"      "apk uses bind-tools for dig"
+# Every manager's list carries git and the shared COMMON kit (jq as proxy).
+for _mgr in dnf apt pacman zypper apk; do
+  assert_eq yes "$(has_word "$(package_list "$_mgr")" git)" "$_mgr includes git"
+  assert_eq yes "$(has_word "$(package_list "$_mgr")" jq)"  "$_mgr includes COMMON (jq)"
+done
 assert_rc 1 package_list nonsense "unknown manager -> rc 1"
 
 # --- parse_skip / run_step -------------------------------------------------
 assert_contains "$(parse_skip 'CLONE')" clone "parse_skip lowercases"
+assert_eq "packages rust" "$(parse_skip 'Packages,Rust')" \
+  "parse_skip handles commas + mixed case together"
 skips=$(parse_skip 'packages, clone')
 assert_rc 1 run_step "$skips" packages  "listed step is skipped (rc 1)"
 assert_rc 1 run_step "$skips" clone     "second listed step is skipped"
@@ -80,4 +95,12 @@ ensure_in_rc "$rc_tmp" "gk-test-marker" 'export GK_TEST=1' >/dev/null 2>&1
 assert_eq 1 "$(grep -c 'gk-test-marker' "$rc_tmp")" "ensure_in_rc writes marker once"
 assert_eq 1 "$(grep -c 'export GK_TEST=1' "$rc_tmp")" "ensure_in_rc writes line once"
 assert_contains "$(cat "$rc_tmp")" 'export GK_TEST=1' "ensure_in_rc wrote the line verbatim"
+rm -f "$rc_tmp"
+
+# ensure_in_rc appends — pre-existing rc content must survive untouched.
+rc_tmp=$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/gk_rc2_$$")
+printf '# my existing rc\nalias x=y\n' > "$rc_tmp"
+ensure_in_rc "$rc_tmp" "gk-test-marker" 'export GK_TEST=1' >/dev/null 2>&1
+assert_contains "$(cat "$rc_tmp")" 'alias x=y' "ensure_in_rc preserves existing content"
+assert_contains "$(cat "$rc_tmp")" 'export GK_TEST=1' "ensure_in_rc appended after existing content"
 rm -f "$rc_tmp"

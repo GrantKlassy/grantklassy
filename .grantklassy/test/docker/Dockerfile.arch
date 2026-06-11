@@ -1,0 +1,17 @@
+# Arch image for testing install.rs — the pacman path of bootstrap.sh's
+# package-manager matrix. See Dockerfile.debian for the rationale (system-wide
+# nightly so both root and a non-root user can run the -Zscript polyglot).
+#
+# NOTE: the official archlinux image is x86_64-only. On an Apple-Silicon
+# Docker host (colima) it needs Rosetta/qemu emulation; if that's not set up,
+# run the rest of the matrix without it: `sh run.sh fedora ubuntu debian
+# opensuse alpine`.
+FROM archlinux:base
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# gcc (which pulls binutils) gives the `cc` linker rustc needs; the base image
+# already ships tar, coreutils, and shadow (useradd).
+RUN pacman -Syu --noconfirm ca-certificates curl git bash zsh gcc && \
+    rm -rf /var/cache/pacman/pkg/*
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal

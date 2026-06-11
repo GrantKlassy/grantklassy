@@ -7,15 +7,19 @@
 # (committed + new whitelisted files, with uncommitted edits) so the code under
 # test is exactly what's on disk now — not just what's committed.
 #
-#   sh run.sh                 # default matrix: fedora ubuntu debian
+#   sh run.sh                 # default matrix: fedora ubuntu debian arch opensuse alpine
 #   sh run.sh fedora          # a subset
 #
-# Needs a running Docker daemon — on macOS: `colima start`.
+# The matrix covers every package-manager family bootstrap.sh supports: dnf
+# (fedora), apt (ubuntu, debian), pacman (arch), zypper (opensuse), apk
+# (alpine — also the busybox/musl torture test). Needs a running Docker
+# daemon — on macOS: `colima start`. (archlinux is an x86_64-only image; on
+# Apple Silicon either enable Rosetta in colima or pass a subset without it.)
 set -u
 
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(cd -- "$here/../../.." && pwd)   # the $HOME checkout (repo root)
-distros=${*:-fedora ubuntu debian}
+distros=${*:-fedora ubuntu debian arch opensuse alpine}
 
 [ -d "$repo_root/.grantklassy" ] || { echo "repo root not found at $repo_root" >&2; exit 1; }
 command -v docker >/dev/null 2>&1 || { echo "docker not on PATH" >&2; exit 1; }

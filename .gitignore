@@ -13,6 +13,10 @@
 !LICENSE
 !MAC_APPS.md
 
+# CI for this repo itself (GitHub Actions runs the test suites on every push)
+!.github/
+!.github/**
+
 # Karabiner Elements config (~/.config/karabiner/karabiner.json) — created
 # on first launch of the app. Listed pre-emptively so it's tracked from
 # install day. .config/ is opened narrowly here, not as a blanket allow,
