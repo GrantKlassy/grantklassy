@@ -20,7 +20,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The shell harness runs every test under bash AND zsh; Ubuntu runners
       # ship only bash. (macOS runners ship both — and macOS bash is 3.2,
@@ -55,6 +55,6 @@ jobs:
       matrix:
         distro: [fedora, ubuntu, debian, arch, opensuse, alpine]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: run the ${{ matrix.distro }} container suite
         run: sh .grantklassy/test/docker/run.sh ${{ matrix.distro }}
