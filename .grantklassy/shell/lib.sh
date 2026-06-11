@@ -58,10 +58,17 @@ lines() {
 }
 
 # Create dir.tar.gz from a directory (a trailing slash on the arg is tolerated).
+# Quoted expansions, no eval — names with spaces work, and a missing/invalid
+# arg returns 2 instead of the old behavior (empty $1 made the eval'd command
+# `tar cvzf .tar.gz /`, i.e. an attempt to tar the root filesystem).
 targz() {
-  local cmd="tar cvzf ${1%%/}.tar.gz ${1%%/}/"
-  printf '%s\n' "$cmd"
-  eval "$cmd"
+  local dir="${1%/}"
+  if [ -z "$dir" ] || [ ! -d "$dir" ]; then
+    printf 'usage: targz <directory>\n' >&2
+    return 2
+  fi
+  printf 'tar cvzf %s.tar.gz %s/\n' "$dir" "$dir"
+  tar cvzf "$dir.tar.gz" "$dir/"
 }
 
 # epoch        -> current unix epoch

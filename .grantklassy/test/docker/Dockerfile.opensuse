@@ -1,0 +1,13 @@
+# openSUSE Tumbleweed image for testing install.rs — the zypper path of
+# bootstrap.sh's package-manager matrix. shadow provides useradd; tar+gzip are
+# not in the (very minimal) base image. See Dockerfile.debian for the rationale
+# (system-wide nightly so both root and a non-root user can run the -Zscript
+# polyglot).
+FROM opensuse/tumbleweed
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# gcc gives the `cc` linker rustc needs (bootstrap installs gcc too).
+RUN zypper --non-interactive install ca-certificates curl git bash zsh tar gzip shadow gcc && \
+    zypper clean -a
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal

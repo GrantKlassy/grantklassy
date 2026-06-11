@@ -1,0 +1,60 @@
+# CI for the grantklassy repo: the unit suites on Ubuntu + macOS, plus the
+# Docker end-to-end matrix across every package-manager family bootstrap.sh
+# supports. This is the same thing the two local commands run —
+# `~/.grantklassy/test.sh` and `~/.grantklassy/test/docker/run.sh` — so a
+# green check here means the repo works on a box you've never touched.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The shell harness runs every test under bash AND zsh; Ubuntu runners
+      # ship only bash. (macOS runners ship both — and macOS bash is 3.2,
+      # which is exactly the bash the entrypoints must keep working on.)
+      - name: install zsh (linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y zsh
+
+      # install.rs / gkdisk.rs are `cargo +nightly -Zscript` polyglots, so the
+      # rust half of test.sh needs a nightly toolchain. rustup is preinstalled
+      # on Ubuntu runners but not always on macOS ones — install it if absent.
+      - name: install nightly rust
+        run: |
+          command -v rustup >/dev/null 2>&1 \
+            || curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs \
+               | sh -s -- -y --default-toolchain none --no-modify-path
+          export PATH="$HOME/.cargo/bin:$PATH"
+          rustup toolchain install nightly --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - name: run the test suite
+        run: sh .grantklassy/test.sh
+
+  # One job per distro so a single family failing doesn't hide the others and
+  # the matrix reads at a glance from the checks list. Docker is preinstalled
+  # on Ubuntu runners; run.sh builds the image and runs in-container.sh.
+  docker:
+    name: docker (${{ matrix.distro }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: [fedora, ubuntu, debian, arch, opensuse, alpine]
+    steps:
+      - uses: actions/checkout@v4
+      - name: run the ${{ matrix.distro }} container suite
+        run: sh .grantklassy/test/docker/run.sh ${{ matrix.distro }}

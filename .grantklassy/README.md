@@ -92,10 +92,17 @@ sh ~/.grantklassy/shell/tests/run.sh               # shell helpers, bash + zsh
 sh ~/.grantklassy/test/bootstrap/run.sh            # bootstrap.sh helpers, sh + bash
 cargo +nightly -Zscript test --manifest-path ~/.grantklassy/install.rs
 cargo +nightly -Zscript test --manifest-path ~/.grantklassy/macos/gkdisk.rs
-~/.grantklassy/test/docker/run.sh                  # install.rs + bootstrap.sh on Fedora/Ubuntu/Debian
+~/.grantklassy/test/docker/run.sh                  # install.rs + bootstrap.sh, all distros (below)
 ```
 
 The shell harness runs each `shell/tests/test_*.sh` under **both** bash and zsh;
 that is what enforces the cross-shell invariants the two configs must share
 (e.g. `host_color` picking the same colour despite zsh's 1-indexed vs bash's
 0-indexed arrays).
+
+The Docker matrix covers one distro per package-manager family `bootstrap.sh`
+supports — **Fedora** (dnf), **Ubuntu + Debian** (apt), **Arch** (pacman),
+**openSUSE Tumbleweed** (zypper), and **Alpine** (apk; also the busybox-`sh` +
+musl torture test). `.github/workflows/test.yml` runs the unit suites on
+Ubuntu + macOS runners and the full Docker matrix on every push, so the
+cross-distro claims stay continuously proven rather than aspirational.

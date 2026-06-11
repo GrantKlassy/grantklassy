@@ -1,0 +1,14 @@
+# Alpine image for testing install.rs — the apk path of bootstrap.sh's
+# package-manager matrix, and the strictest box in it: /bin/sh is busybox ash
+# (even leaner than dash), rustc links against musl, and the userland is
+# busybox — so this distro is what proves nothing in the repo assumes glibc or
+# GNU tools. in-container.sh's useradd fallback (`adduser -D`) is busybox's.
+# See Dockerfile.debian for the rationale (system-wide nightly so both root
+# and a non-root user can run the -Zscript polyglot).
+FROM alpine:latest
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# build-base gives the `cc` linker + musl-dev headers rustc needs.
+RUN apk add --no-cache ca-certificates curl git bash zsh tar build-base
+RUN curl -fsSL https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly --profile minimal

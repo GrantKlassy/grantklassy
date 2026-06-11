@@ -120,9 +120,10 @@ REAL_HOME=
 # parse_skip / parse_env0).
 
 # parse_skip — normalize a GK_BOOTSTRAP_SKIP value (comma/space list) into a
-# space-separated, lowercased token string suitable for run_step.
+# space-separated, lowercased token string suitable for run_step. [:upper:]
+# rather than A-Z so the fold is locale-safe (and shellcheck-clean: SC2018).
 parse_skip() {
-  printf '%s' "$1" | tr ',' ' ' | tr 'A-Z' 'a-z'
+  printf '%s' "$1" | tr ',' ' ' | tr '[:upper:]' '[:lower:]'
 }
 
 # run_step STEP-LIST NAME — succeed (0) if NAME should run; if NAME is in the
@@ -150,12 +151,14 @@ os_from_uname() {
 # distro_from_os_release — read /etc/os-release text on stdin, echo the `ID=`
 # value with surrounding quotes stripped (e.g. fedora, ubuntu, debian), or
 # nothing if there's no ID line. `ID_LIKE=` etc. don't match the `ID=*` glob.
+# os-release(5) allows single OR double quoting, so both are stripped.
 distro_from_os_release() {
   while IFS= read -r _line; do
     case "$_line" in
       ID=*)
         _v=${_line#ID=}
         _v=${_v#\"}; _v=${_v%\"}
+        _v=${_v#\'}; _v=${_v%\'}
         echo "$_v"
         return
         ;;
