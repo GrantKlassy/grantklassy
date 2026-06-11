@@ -168,15 +168,28 @@ fn main() {
 /// same set regardless of which account happens to be logged in.
 const GITHUB_USER: &str = "GrantKlassy";
 
+/// This repo itself. clone_repos skips it: it's already checked out directly
+/// into $HOME (that's the whole design), so mirroring it again under
+/// ~/git/grantklassy/grantklassy would only create a second, stale copy.
+const SELF_REPO: &str = "grantklassy";
+
+/// Whether a `gh` `OWNER/REPO` name refers to this dotfiles repo. Compares
+/// the repo half case-insensitively — GitHub repo names are case-insensitive
+/// and `gh` echoes whatever case the server has stored.
+fn is_self_repo(name_with_owner: &str) -> bool {
+    repo_dir_name(name_with_owner).eq_ignore_ascii_case(SELF_REPO)
+}
+
 /// Mirror every public repo owned by GITHUB_USER into ~/git/grantklassy/,
 /// one directory per repo — the idempotent form of `mkdir -p
 /// ~/git/grantklassy && git clone …`. Repos are enumerated with `gh` (a
 /// bootstrap prerequisite) so new repos are picked up automatically on
-/// re-run and nothing is hardcoded. A repo whose directory already exists
-/// is left untouched: we never clobber or force-pull local work. Non-fatal
-/// throughout — a failed enumerate, or any single failed clone, warns and
-/// the install continues, since cloning is a convenience and not a
-/// prerequisite for the steps around it.
+/// re-run and nothing is hardcoded. The dotfiles repo itself (SELF_REPO) is
+/// skipped — it's already checked out into $HOME. A repo whose directory
+/// already exists is left untouched: we never clobber or force-pull local
+/// work. Non-fatal throughout — a failed enumerate, or any single failed
+/// clone, warns and the install continues, since cloning is a convenience
+/// and not a prerequisite for the steps around it.
 fn clone_repos() {
     let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
         warn!("$HOME not set — skipping repo clone");
@@ -226,6 +239,10 @@ fn clone_repos() {
     info!("{} public repo(s) → {}", repos.len(), dest_root.display());
 
     for repo in repos {
+        if is_self_repo(repo) {
+            info!("{repo} is this dotfiles repo (checked out in $HOME) — skipping");
+            continue;
+        }
         let name = repo_dir_name(repo);
         let dir = dest_root.join(name);
         if dir.exists() {
@@ -528,6 +545,25 @@ mod tests {
     fn repo_dir_name_keeps_last_segment() {
         // rsplit keeps us correct even if extra path segments ever appear.
         assert_eq!(repo_dir_name("a/b/c"), "c");
+    }
+
+    #[test]
+    fn is_self_repo_matches_this_repo_case_insensitively() {
+        // The canonical name gh returns today, plus case variants — GitHub
+        // treats repo names case-insensitively, so we must too.
+        assert!(is_self_repo("GrantKlassy/grantklassy"));
+        assert!(is_self_repo("grantklassy/grantklassy"));
+        assert!(is_self_repo("GrantKlassy/GRANTKLASSY"));
+        // A bare name (no owner half) still matches.
+        assert!(is_self_repo("grantklassy"));
+    }
+
+    #[test]
+    fn is_self_repo_rejects_other_repos() {
+        assert!(!is_self_repo("GrantKlassy/facecam"));
+        // Prefix/suffix near-misses are different repos, not this one.
+        assert!(!is_self_repo("GrantKlassy/grantklassy-fork"));
+        assert!(!is_self_repo("GrantKlassy/old-grantklassy"));
     }
 
     #[test]

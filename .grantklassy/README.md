@@ -57,7 +57,8 @@ runnable before `.grantklassy/` exists on disk.
 `exec cargo +nightly -Zscript "$0"` lets `./install.rs` run on any POSIX system
 (needs a nightly toolchain), while cargo compiles the rest. `install.rs` steps:
 ensure nightly → idempotently wire shell startup files → install Claude Code →
-Karabiner (macOS only) → clone the user's public repos into `~/git/grantklassy/`.
+Karabiner (macOS only) → clone the user's public repos into `~/git/grantklassy/`
+(minus this repo itself — it's already checked out into `$HOME`).
 Steps can be skipped with **`GK_INSTALL_SKIP`** (comma/space list:
 `nightly,shell-env,claude,karabiner,clone`) — used by the container tests to run
 the offline shell-env wiring without the network steps.
