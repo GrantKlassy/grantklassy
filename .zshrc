@@ -104,7 +104,6 @@ alias m='mount | column -t | less -S'
 alias k='kubectl'
 alias reload='[[ -f ~/.zshenv ]] && source ~/.zshenv; source ~/.zshrc'
 alias perms='stat -c "%a %A %G:%U %n" ./* | column -t'
-alias claude='claude --model=opus --effort=max'
 
 # ----------------------------------------------------------------------------
 # Prompt

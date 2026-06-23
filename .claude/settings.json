@@ -5,9 +5,21 @@
     ],
     "defaultMode": "auto"
   },
+  "model": "opus[1m]",
+  "statusLine": {
+    "type": "command",
+    "command": "bash /Users/grantklassy/.claude/statusline-command.sh"
+  },
   "fastMode": true,
+  "voice": {
+    "enabled": true,
+    "mode": "hold"
+  },
   "skipDangerousModePermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
   "theme": "auto",
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true,
   "skipAutoPermissionPrompt": true,
   "autoMode": {
     "allow": [
@@ -15,8 +27,5 @@
       "Allow `git push` to `main` in /Users/grantklassy and /Users/grantklassy/git/grantklassy/bootstrap — personal solo repos."
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "bash /Users/grantklassy/.claude/statusline-command.sh"
-  }
+  "voiceEnabled": true
 }

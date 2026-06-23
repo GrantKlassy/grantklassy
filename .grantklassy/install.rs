@@ -46,6 +46,51 @@ fn run(cmd: &str, args: &[&str]) {
     }
 }
 
+/// How many times a flaky network step is attempted before giving up. The
+/// claude download in particular hits transient TLS/socket errors —
+/// `curl: (56) ... bad decrypt`, `socket connection was closed unexpectedly` —
+/// that a re-attempt a few seconds later usually clears.
+const NETWORK_ATTEMPTS: u32 = 3;
+
+/// Seconds to wait after the `attempt`-th (1-based) failure before retrying:
+/// exponential backoff (2, 4, 8, …) capped at 30s so a sustained outage can't
+/// stall the install for minutes. `saturating_pow` keeps a large `attempt`
+/// from overflowing the shift. Pure, so it's unit-testable.
+fn backoff_secs(attempt: u32) -> u64 {
+    2u64.saturating_pow(attempt).min(30)
+}
+
+/// Like `run`, but returns whether the command succeeded instead of aborting on
+/// failure, so callers can retry or warn-and-continue. Stdio is inherited (not
+/// captured), so the subprocess's own errors still reach the user. Only a spawn
+/// failure warns here; a non-zero exit is left for the caller to narrate.
+fn try_run(cmd: &str, args: &[&str]) -> bool {
+    match Command::new(cmd).args(args).status() {
+        Ok(status) => status.success(),
+        Err(e) => { warn!("spawn {cmd}: {e}"); false }
+    }
+}
+
+/// Run a flaky network command, retrying with exponential backoff. Returns true
+/// as soon as an attempt succeeds, false once all NETWORK_ATTEMPTS have failed.
+/// Unlike `run`, never exits — a download that stays broken shouldn't sink the
+/// whole install (the steps after it are independent), so the caller decides.
+fn run_with_retries(cmd: &str, args: &[&str]) -> bool {
+    for attempt in 1..=NETWORK_ATTEMPTS {
+        if try_run(cmd, args) {
+            return true;
+        }
+        if attempt < NETWORK_ATTEMPTS {
+            let secs = backoff_secs(attempt);
+            warn!("attempt {attempt}/{NETWORK_ATTEMPTS} failed — retrying in {secs}s");
+            std::thread::sleep(std::time::Duration::from_secs(secs));
+        } else {
+            warn!("attempt {attempt}/{NETWORK_ATTEMPTS} failed");
+        }
+    }
+    false
+}
+
 /// install.rs is a *userspace* script: every path it writes lives under
 /// $HOME and must end up owned by the user. Run as root (the `sudo
 /// install.rs` reflex), the claude installer stages its download into
@@ -140,7 +185,17 @@ fn main() {
         // ${BASH_REMATCH}), so it must be piped to `bash`, not `sh` — piping to
         // `sh` would break it wherever /bin/sh isn't bash (e.g. Linux/dash). The
         // outer `sh -c` only sets up the pipe; curl + bash are the real prereqs.
-        run("sh", &["-c", "curl -fsSL https://claude.ai/install.sh | bash"]);
+        //
+        // The download is prone to transient TLS/socket failures (the very
+        // `curl: (56) ... bad decrypt` / `socket connection was closed` errors
+        // that motivated this), so retry with backoff. If every attempt fails,
+        // warn and continue rather than aborting: like karabiner/clone below, a
+        // flaky download shouldn't block the rest of setup, and the whole script
+        // is idempotent so a later re-run picks up where this left off.
+        if !run_with_retries("sh", &["-c", "curl -fsSL https://claude.ai/install.sh | bash"]) {
+            warn!("claude code install failed after {NETWORK_ATTEMPTS} attempts —");
+            warn!("re-run `./install.rs` once your connection is stable (it's idempotent)");
+        }
     }
     refresh_env();
 
@@ -588,6 +643,16 @@ mod tests {
         assert!(is_skipped(&skips, "clone"));
         assert!(!is_skipped(&skips, "nightly"));
         assert!(!is_skipped(&[], "claude"));
+    }
+
+    #[test]
+    fn backoff_secs_is_exponential_and_capped() {
+        assert_eq!(backoff_secs(1), 2);
+        assert_eq!(backoff_secs(2), 4);
+        assert_eq!(backoff_secs(3), 8);
+        // The 30s cap holds and the shift never overflows for large attempts.
+        assert_eq!(backoff_secs(10), 30);
+        assert_eq!(backoff_secs(64), 30);
     }
 
 }
