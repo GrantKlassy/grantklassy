@@ -34,6 +34,10 @@
 #   - build:      gcc, make, pkg-config
 #   - editor:     vim
 #   - audio:      pactl, paplay (pulseaudio-utils; libpulse on Arch)
+#   - pdf:        pdftotext, pdftoppm, pdfinfo (poppler-utils; bare `poppler` on
+#                 Arch, `poppler-tools` on openSUSE)
+#   - fonts:      Liberation (metric-compatible Arial/Times/Courier stand-ins) —
+#                 spelled differently by every single manager; see package_list
 #
 # Then it wires `. "$HOME/.cargo/env"` into ~/.zshenv and ~/.bashrc (and `brew
 # shellenv` into ~/.zprofile / ~/.bash_profile on macOS) so future shells find
@@ -54,12 +58,15 @@
 # repo needs no auth, which is the whole reason the two-command launch works.
 REPO_URL=https://github.com/GrantKlassy/grantklassy.git
 
-# Tools whose package name is identical across every package manager. The rest
-# are spelled out per-manager in package_list (names diverge: dig is
-# bind-utils/dnsutils/bind/bind-tools, nc is nmap-ncat/openbsd-netcat/
+# Tools whose package name is identical across every package manager *including
+# brew*. The rest are spelled out per-manager in package_list (names diverge:
+# dig is bind-utils/dnsutils/bind/bind-tools, nc is nmap-ncat/openbsd-netcat/
 # netcat-openbsd, the C toolchain is gcc+make vs build-essential vs base-devel
 # vs build-base, the pulseaudio client tools are pulseaudio-utils vs libpulse on
-# Arch, etc.).
+# Arch, the poppler CLI is poppler-utils except bare `poppler` on Arch/brew and
+# `poppler-tools` on openSUSE, and the Liberation fonts manage a different name
+# on all six — liberation-fonts-all / fonts-liberation / ttf-liberation /
+# liberation-fonts / font-liberation).
 COMMON='curl wget less unzip rsync jq tmux htop'
 
 main() {
@@ -197,13 +204,21 @@ detect_manager() {
 # intentionally absent from the apt list: Debian/Ubuntu don't ship it, so
 # install_gh_debian adds GitHub's apt source separately. Returns 1 on an
 # unknown manager so a typo fails loudly instead of installing nothing.
+#
+# Two names here are easy to get wrong, and the unit tests pin both:
+#   - Fedora's `liberation-fonts` is a *source* package. The installable
+#     metapackage is `liberation-fonts-all` (it merely Provides the short name,
+#     so `dnf install liberation-fonts` happens to resolve — but `rpm -q` on it
+#     then fails). Use the real name.
+#   - Alpine's `ttf-liberation` still installs, but it is a zero-byte deprecated
+#     shim that pulls in `font-liberation`. Depend on the real one.
 package_list() {
   case "$1" in
-    dnf)    echo "git gh ca-certificates $COMMON gcc make pkgconf-pkg-config vim-enhanced procps-ng bind-utils iputils openssh-clients nmap-ncat pulseaudio-utils" ;;
-    apt)    echo "git ca-certificates $COMMON build-essential pkg-config vim procps dnsutils iputils-ping openssh-client netcat-openbsd pulseaudio-utils" ;;
-    pacman) echo "git github-cli ca-certificates $COMMON base-devel vim procps-ng bind iputils openssh openbsd-netcat libpulse" ;;
-    zypper) echo "git gh ca-certificates $COMMON gcc make pkg-config vim procps bind-utils iputils openssh netcat-openbsd pulseaudio-utils" ;;
-    apk)    echo "git github-cli ca-certificates $COMMON build-base pkgconf vim procps bind-tools iputils openssh netcat-openbsd pulseaudio-utils" ;;
+    dnf)    echo "git gh ca-certificates $COMMON gcc make pkgconf-pkg-config vim-enhanced procps-ng bind-utils iputils openssh-clients nmap-ncat pulseaudio-utils poppler-utils liberation-fonts-all" ;;
+    apt)    echo "git ca-certificates $COMMON build-essential pkg-config vim procps dnsutils iputils-ping openssh-client netcat-openbsd pulseaudio-utils poppler-utils fonts-liberation" ;;
+    pacman) echo "git github-cli ca-certificates $COMMON base-devel vim procps-ng bind iputils openssh openbsd-netcat libpulse poppler ttf-liberation" ;;
+    zypper) echo "git gh ca-certificates $COMMON gcc make pkg-config vim procps bind-utils iputils openssh netcat-openbsd pulseaudio-utils poppler-tools liberation-fonts" ;;
+    apk)    echo "git github-cli ca-certificates $COMMON build-base pkgconf vim procps bind-tools iputils openssh netcat-openbsd pulseaudio-utils poppler-utils font-liberation" ;;
     *)      return 1 ;;
   esac
 }
@@ -263,12 +278,24 @@ as_user() {
 install_essentials() {
   if [ "$OS" = mac ]; then
     ensure_brew
+    brew=$(brew_bin)
     # macOS already ships ssh/dig/ping/ca-certs; Xcode CLT (auto-installed by
     # brew on first install) gives gcc/make. Just brew the rest. as_user because
     # brew refuses to run as root; absolute brew path because under `sudo -u`
     # the inherited PATH is sudo's secure_path, which omits /opt/homebrew/bin.
+    # brew spells the poppler CLI `poppler`, like Arch and unlike everyone else.
     # shellcheck disable=SC2086
-    as_user "$(brew_bin)" install git gh pkg-config vim $COMMON
+    as_user "$brew" install git gh pkg-config vim poppler $COMMON
+    # The Liberation fonts are a *cask* (they drop TTFs into ~/Library/Fonts),
+    # so they need their own `--cask` run — brew won't find them among the
+    # formulae above. They live in homebrew/cask itself now; the old
+    # homebrew/cask-fonts tap is deleted, and `brew tap`ing it is a hard error.
+    # Guard on `brew list --cask` exactly as install.rs's install_karabiner does:
+    # re-running `brew install --cask` on an installed cask has a
+    # version-dependent exit status, which `set -e` would turn into an abort.
+    if ! as_user "$brew" list --cask font-liberation >/dev/null 2>&1; then
+      as_user "$brew" install --cask font-liberation
+    fi
     return
   fi
 

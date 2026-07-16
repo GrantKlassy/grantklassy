@@ -68,6 +68,34 @@ assert_eq yes "$(has_word "$(package_list zypper)" bind-utils)"   "zypper uses b
 assert_eq yes "$(has_word "$(package_list apk)" github-cli)"      "apk uses github-cli"
 assert_eq yes "$(has_word "$(package_list apk)" build-base)"      "apk uses build-base"
 assert_eq yes "$(has_word "$(package_list apk)" bind-tools)"      "apk uses bind-tools for dig"
+
+# poppler's CLI tools (pdftotext/pdftoppm/pdfinfo). poppler-utils on dnf/apt/apk,
+# but bare `poppler` on Arch (the binaries ship in the base package — there is no
+# poppler-utils there) and `poppler-tools` on openSUSE. Installing the wrong
+# spelling is a hard apt/pacman error, so pin the absences too.
+assert_eq yes "$(has_word "$(package_list dnf)" poppler-utils)"    "dnf uses poppler-utils"
+assert_eq yes "$(has_word "$(package_list apt)" poppler-utils)"    "apt uses poppler-utils"
+assert_eq yes "$(has_word "$(package_list apk)" poppler-utils)"    "apk uses poppler-utils"
+assert_eq yes "$(has_word "$(package_list pacman)" poppler)"       "pacman uses bare poppler (utils ship in it)"
+assert_eq no  "$(has_word "$(package_list pacman)" poppler-utils)" "pacman excludes poppler-utils (no such package)"
+assert_eq yes "$(has_word "$(package_list zypper)" poppler-tools)" "zypper uses poppler-tools"
+assert_eq no  "$(has_word "$(package_list zypper)" poppler-utils)" "zypper excludes poppler-utils (no such package)"
+
+# The Liberation fonts manage a different name on every single manager. Two are
+# traps: Fedora's `liberation-fonts` is a source package (the installable
+# metapackage is `liberation-fonts-all`), and Alpine's `ttf-liberation` is a
+# deprecated zero-byte shim that pulls in the real `font-liberation`.
+assert_eq yes "$(has_word "$(package_list dnf)" liberation-fonts-all)" \
+  "dnf uses liberation-fonts-all"
+assert_eq no  "$(has_word "$(package_list dnf)" liberation-fonts)" \
+  "dnf excludes bare liberation-fonts (it is a srpm, not installable)"
+assert_eq yes "$(has_word "$(package_list apt)" fonts-liberation)"    "apt uses fonts-liberation"
+assert_eq yes "$(has_word "$(package_list pacman)" ttf-liberation)"   "pacman uses ttf-liberation"
+assert_eq yes "$(has_word "$(package_list zypper)" liberation-fonts)" "zypper uses liberation-fonts"
+assert_eq yes "$(has_word "$(package_list apk)" font-liberation)"     "apk uses font-liberation"
+assert_eq no  "$(has_word "$(package_list apk)" ttf-liberation)" \
+  "apk excludes ttf-liberation (deprecated shim for font-liberation)"
+
 # Every manager's list carries git and the shared COMMON kit (jq as proxy).
 for _mgr in dnf apt pacman zypper apk; do
   assert_eq yes "$(has_word "$(package_list "$_mgr")" git)" "$_mgr includes git"

@@ -5,12 +5,13 @@
     ],
     "defaultMode": "auto"
   },
-  "model": "opus[1m]",
+  "model": "claude-fable-5[1m]",
   "statusLine": {
     "type": "command",
     "command": "bash /Users/grantklassy/.claude/statusline-command.sh"
   },
   "fastMode": true,
+  "tui": "fullscreen",
   "voice": {
     "enabled": true,
     "mode": "hold"
